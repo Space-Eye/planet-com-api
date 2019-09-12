@@ -1,0 +1,16 @@
+[DEFAULT]
+API_KEY = ganzgeheim
+
+[REGION1]
+geojson = path/to/file.json
+download = path/to/save
+from = YYYY-MM-DD
+to = YYYY-MM-DD
+cloud_limit = 0.15
+
+[REGION2]
+geojson = path/to/file2.json
+download = path/to/save2
+from = YYYY-MM-DD
+to = YYYY-MM-DD
+cloud_limit = 0.15
