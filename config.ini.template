@@ -1,5 +1,5 @@
 [DEFAULT]
-API_KEY = ganzgeheim
+API_KEY = XXXX
 
 [REGION1]
 geojson = path/to/file.json
