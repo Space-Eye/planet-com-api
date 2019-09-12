@@ -9,7 +9,7 @@ import time
 import multiprocessing as mp
 import os
 import socket
-import re
+# import re
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -23,10 +23,14 @@ def download_file(url, file_name):
     """
     Download final file
     """
-    with requests.get(url, stream=True) as result:
+    print("Downloading {} to {}".format(url, file_name))
+    with requests.get(
+        url, stream=True,
+        auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], '')
+    ) as result:
         result.raise_for_status()
         with open(file_name, 'wb') as file_write:
-            for chunk in file_write.iter_content(chunk_size=8192):
+            for chunk in result.iter_content(chunk_size=8192):
                 if chunk:
                     file_write.write(chunk)
 
@@ -42,11 +46,10 @@ def download(queue_active_assets):
             time.sleep(1)
             continue
         print("Got active asset: {} {}".format(item_id, asset_type))
-        result = requests.head(
-            link,
-            auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''))
-        dispo = result.headers['content-disposition']
-        fname = re.findall("filename=(.+)", dispo)
+        if asset_type == "analytic":
+            fname = "{}.tif".format(item_id)
+        else:
+            fname = "{}.xml".format(item_id)
         download_file(link, os.path.join(CONFIG[section]['download'], fname))
 
 
@@ -177,7 +180,6 @@ def search(queue_item_ids, section, search_request=None, next_link=None):
         search_result = requests.get(
             next_link,
             auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''))
-        return  # Todo: remove
     else:
         print("Search query")
         search_result = requests.post(
