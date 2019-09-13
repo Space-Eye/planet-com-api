@@ -10,6 +10,7 @@ import multiprocessing as mp
 import os
 import requests
 from requests.auth import HTTPBasicAuth
+import progressbar
 
 CONFIG = configparser.ConfigParser()
 CONFIG.read('config.ini')
@@ -26,11 +27,17 @@ def download_file(url, file_name):
         url, stream=True,
         auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], '')
     ) as result:
+        file_size = int(result.headers['Content-Length'])
+        chunk_size = 1024
+        num_bars = file_size / chunk_size
+        pbar = progressbar.ProgressBar(maxval=num_bars).start()
         result.raise_for_status()
+        i = 0
         with open(file_name, 'wb') as file_write:
-            for chunk in result.iter_content(chunk_size=8192):
-                if chunk:
-                    file_write.write(chunk)
+            for chunk in result.iter_content(chunk_size=chunk_size):
+                file_write.write(chunk)
+                pbar.update(i)
+                i += 1
     print("Download of {} finished".format(file_name))
 
 
