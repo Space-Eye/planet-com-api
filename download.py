@@ -31,6 +31,7 @@ def download_file(url, file_name):
             for chunk in result.iter_content(chunk_size=8192):
                 if chunk:
                     file_write.write(chunk)
+    print("Download of {} finished".format(file_name))
 
 
 def download(queue_active_assets):
@@ -48,7 +49,6 @@ def download(queue_active_assets):
         if item_id is None:
             print("### Downloading has ended ###")
             return
-        print("Got active asset: {} {}".format(item_id, asset_type))
         if asset_type == "analytic":
             fname = "{}.tif".format(item_id)
         else:
