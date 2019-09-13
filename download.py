@@ -38,12 +38,16 @@ def download(queue_active_assets):
     Get download url and generate target file for assets from
     active assets queue
     """
+    print("### Start download process ###")
     while True:
         try:
             item_id, section, asset_type, link = queue_active_assets.get(False)
         except queue.Empty:
             time.sleep(0.1)
             continue
+        if item_id is None:
+            print("### Downloading has ended ###")
+            return
         print("Got active asset: {} {}".format(item_id, asset_type))
         if asset_type == "analytic":
             fname = "{}.tif".format(item_id)
@@ -57,7 +61,7 @@ def is_active(queue_inactive_assets, queue_active_assets):
     Check if inactive assets are activated, then queue as active
     asset
     """
-    print("Start active checking process.")
+    print("### Start active checking process ###")
     while True:
         try:
             item_id, section, asset_type, timestamp = (
@@ -65,6 +69,14 @@ def is_active(queue_inactive_assets, queue_active_assets):
         except queue.Empty:
             time.sleep(0.1)
             continue
+        if item_id is None:
+            if queue_inactive_assets.qsize() == 0:
+                print("### Activation checking has ended ###")
+                queue_active_assets.put((None, None, None, None))
+                return
+            else:
+                queue_inactive_assets.put((None, None, None, None))
+                continue
         if timestamp < time.time() + 180:
             # back to queue
             queue_inactive_assets.put((item_id, section,
@@ -104,26 +116,27 @@ def activate(queue_item_ids, queue_inactive_assets, queue_active_assets):
     If asset is inactive, activate and put on queue_inactive_assets.
     Otherweise put on queue_active_assets.
     """
-    print("Starting activation process.")
+    print("### Starting activation process ###")
     while True:
         try:
             item_id, section = queue_item_ids.get(False)
         except queue.Empty:
             time.sleep(0.01)
             continue
+        if item_id is None and section is None:
+            queue_inactive_assets.put((None, None, None, None))
+            print("### Activation has ended ###")
+            return
         for asset_type in ["analytic", "analytic_xml"]:
-            print("Checking asset {} in {}".format(asset_type, item_id))
             active, link = check_active_asset(item_id, asset_type)
             if active is None:
                 print("{} contains no valid asset.".format(item_id))
                 continue
             elif not active:
                 print("activating {}".format(link))
-                activation_result = requests.get(
+                requests.get(
                     link,
                     auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''))
-                print("Activating {}: {}".format(item_id,
-                                                 activation_result.text))
                 queue_inactive_assets.put((item_id, section,
                                            asset_type, time.time()))
             else:
@@ -196,12 +209,15 @@ def search(queue_item_ids, section, search_request=None, next_link=None):
     if search_result_json['_links']['_next']:
         search(queue_item_ids, section,
                next_link=search_result_json['_links']['_next'])
+    else:
+        return
 
 
 def load_ids(queue_item_ids):
     """
     Wrap API search
     """
+    print("### Start search process ###")
     for section in CONFIG:
         if section == "DEFAULT":
             continue
@@ -209,6 +225,9 @@ def load_ids(queue_item_ids):
             geojson_geometry = json.load(json_file)
         search_request = search_query(geojson_geometry, section)
         search(queue_item_ids, section, search_request=search_request)
+    queue_item_ids.put((None, None))
+    print("### Search has ended ###")
+    return
 
 
 def main():
