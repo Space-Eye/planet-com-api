@@ -10,7 +10,7 @@ import multiprocessing as mp
 import os
 import requests
 from requests.auth import HTTPBasicAuth
-import progressbar
+import progressbar  # pylint: disable=E0401
 
 CONFIG = configparser.ConfigParser()
 CONFIG.read('config.ini')
@@ -42,6 +42,7 @@ def download_file(url, file_name):
                 pbar.update(i)
                 i += 1
     print("Download of {} finished".format(file_name))
+    return False
 
 
 def download(queue_active_assets):
@@ -71,9 +72,13 @@ def download(queue_active_assets):
             print("File {} already exists. Skipping.".format(fname))
             continue
         try:
-            download_file(link, os.path.join(CONFIG[section]['download'],
-                                             fname))
+            requeue = download_file(
+                link,
+                os.path.join(CONFIG[section]['download'],
+                             fname))
         except (requests.exceptions.ReadTimeout, OSError):
+            requeue = True
+        if requeue:
             queue_active_assets.put((item_id, section, asset_type, link))
 
 
