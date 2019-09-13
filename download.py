@@ -8,8 +8,6 @@ import queue
 import time
 import multiprocessing as mp
 import os
-import socket
-# import re
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -37,13 +35,14 @@ def download_file(url, file_name):
 
 def download(queue_active_assets):
     """
-    Download assets from active assets queue
+    Get download url and generate target file for assets from
+    active assets queue
     """
     while True:
         try:
             item_id, section, asset_type, link = queue_active_assets.get(False)
         except queue.Empty:
-            time.sleep(1)
+            time.sleep(0.1)
             continue
         print("Got active asset: {} {}".format(item_id, asset_type))
         if asset_type == "analytic":
@@ -55,7 +54,8 @@ def download(queue_active_assets):
 
 def is_active(queue_inactive_assets, queue_active_assets):
     """
-    Check if inactive assets are activated, then download
+    Check if inactive assets are activated, then queue as active
+    asset
     """
     print("Start active checking process.")
     while True:
@@ -63,7 +63,7 @@ def is_active(queue_inactive_assets, queue_active_assets):
             item_id, section, asset_type, timestamp = (
                 queue_inactive_assets.get(False))
         except queue.Empty:
-            time.sleep(1)
+            time.sleep(0.1)
             continue
         if timestamp < time.time() + 180:
             # back to queue
@@ -83,12 +83,15 @@ def check_active_asset(item_id, asset_type):
            .format(ITEM_TYPE, item_id))
     try:
         result = requests.get(
-            url, timeout=10,
+            url, timeout=20,
             auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''))
-    except socket.timeout:
+    except requests.exceptions.ReadTimeout:
         print("URL {} timed out.".format(url))
         return (None, None)
-    assets_result_json = result.json()
+    try:
+        assets_result_json = result.json()
+    except json.decoder.JSONDecodeError:
+        return (None, None)
     if not assets_result_json:
         return (None, None)
     if assets_result_json[asset_type]['status'] == "active":
@@ -106,7 +109,7 @@ def activate(queue_item_ids, queue_inactive_assets, queue_active_assets):
         try:
             item_id, section = queue_item_ids.get(False)
         except queue.Empty:
-            time.sleep(1)
+            time.sleep(0.01)
             continue
         for asset_type in ["analytic", "analytic_xml"]:
             print("Checking asset {} in {}".format(asset_type, item_id))
