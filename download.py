@@ -24,7 +24,7 @@ def download_file(url, file_name):
     """
     print("Downloading {} to {}".format(url, file_name))
     with requests.get(
-        url, stream=True,
+        url, stream=True, timeout=10,
         auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], '')
     ) as result:
         file_size = int(result.headers['Content-Length'])
@@ -54,13 +54,20 @@ def download(queue_active_assets):
             time.sleep(0.1)
             continue
         if item_id is None:
-            print("### Downloading has ended ###")
-            return
+            if queue_active_assets.qsize == 0:
+                print("### Downloading has ended ###")
+                return
+            else:
+                queue_active_assets.put((None, None, None, None))
         if asset_type == "analytic":
             fname = "{}.tif".format(item_id)
         else:
             fname = "{}.xml".format(item_id)
-        download_file(link, os.path.join(CONFIG[section]['download'], fname))
+        try:
+            download_file(link, os.path.join(CONFIG[section]['download'],
+                                             fname))
+        except (requests.exceptions.ReadTimeout, OSError):
+            queue_active_assets.put((item_id, section, asset_type, link))
 
 
 def is_active(queue_inactive_assets, queue_active_assets):
