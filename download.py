@@ -27,7 +27,10 @@ def download_file(url, file_name):
         url, stream=True, timeout=10,
         auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], '')
     ) as result:
-        file_size = int(result.headers['Content-Length'])
+        if 'Content-Length' in result.headers:
+            file_size = int(result.headers['Content-Length'])
+        else:
+            file_size = 1024
         chunk_size = 1024
         num_bars = file_size / chunk_size
         pbar = progressbar.ProgressBar(maxval=num_bars).start()
@@ -148,16 +151,15 @@ def activate(queue_item_ids, queue_inactive_assets, queue_active_assets):
         for asset_type in ["analytic", "analytic_xml"]:
             active, link = check_active_asset(item_id, asset_type)
             if active is None:
-                print("{} contains no valid asset.".format(item_id))
                 continue
-            elif not active:
-                print("activating {}".format(link))
+            elif active is False:
+                print("Activating {}".format(link))
                 requests.get(
                     link,
                     auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''))
                 queue_inactive_assets.put((item_id, section,
                                            asset_type, time.time()))
-            else:
+            elif active is True:
                 print("Queuing active asset: {}".format(item_id))
                 queue_active_assets.put((item_id, section, asset_type, link))
 
@@ -210,12 +212,12 @@ def search(queue_item_ids, section, search_request=None, next_link=None):
     Get search results from API
     """
     if next_link:
-        print("Next link {}".format(next_link))
+        print("Next search link {}".format(next_link))
         search_result = requests.get(
             next_link,
             auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''))
     else:
-        print("Search query")
+        print("Initial search query")
         search_result = requests.post(
             'https://api.planet.com/data/v1/quick-search',
             auth=HTTPBasicAuth(CONFIG['DEFAULT']['API_KEY'], ''),
@@ -223,7 +225,6 @@ def search(queue_item_ids, section, search_request=None, next_link=None):
     search_result_json = search_result.json()
     for feature in search_result_json['features']:
         queue_item_ids.put((feature['id'], section))
-        print("Adding feature id: {}".format(feature['id']))
     if search_result_json['_links']['_next']:
         search(queue_item_ids, section,
                next_link=search_result_json['_links']['_next'])
