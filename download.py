@@ -63,6 +63,10 @@ def download(queue_active_assets):
             fname = "{}.tif".format(item_id)
         else:
             fname = "{}.xml".format(item_id)
+        print("Download queue length: {}".format(queue_active_assets.qsize()))
+        if os.path.exists(os.path.join(CONFIG[section]['download'], fname)):
+            print("File {} already exists. Skipping.".format(fname))
+            continue
         try:
             download_file(link, os.path.join(CONFIG[section]['download'],
                                              fname))
